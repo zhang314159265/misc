@@ -4,6 +4,8 @@
 #include "SkStream.h"
 #include "SkPath.h"
 #include "SkPDFDocument.h"
+#include "SkRRect.h"
+#include "SkTextBlob.h"
 #include <gflags/gflags.h>
 #include <fmt/format.h>
 #include <cstdlib>
@@ -59,12 +61,51 @@ class DrawFuncCollection {
     canvas->translate(0.5f * scale, 0.5f * scale);
     canvas->drawPath(path, p);
   }
+
+  // example to draw geometrics and texts.
+  static void drawGeoAndText(SkCanvas* canvas) {
+    canvas->drawColor(SK_ColorTRANSPARENT);
+    SkPaint paint;
+    paint.setStyle(SkPaint::kStroke_Style);
+    paint.setStrokeWidth(4);
+    paint.setColor(SK_ColorRED);
+
+    SkRect rect = SkRect::MakeXYWH(50, 50, 40, 60);
+    canvas->drawRect(rect, paint);
+
+    // we can use SkRRect to draw ovals
+    SkRRect oval;
+    oval.setOval(rect);
+    oval.offset(40, 60);
+    paint.setColor(SK_ColorBLUE);
+    canvas->drawRRect(oval, paint);
+
+    paint.setColor(SK_ColorCYAN);
+    canvas->drawCircle(180, 50, 25, paint);
+
+    rect.offset(80, 0);
+    paint.setColor(SK_ColorYELLOW);
+    canvas->drawRoundRect(rect, 10, 10, paint);
+
+    SkPath path;
+    path.cubicTo(768, 0, -512, 256, 256, 256);
+    paint.setColor(SK_ColorGREEN);
+    canvas->drawPath(path, paint);
+
+    // the text may not be visible using imgcat since the background of the canvas
+    // is transparent and both the background of the iterm and the color of the text
+    // are black.
+    auto font = SkFont(nullptr, 18);
+    auto text = SkTextBlob::MakeFromString("Hello, Skia!", font);
+    canvas->drawTextBlob(text.get(), 50, 25, SkPaint());
+  }
 };
 
 unordered_map<std::string, DrawFuncT> draw_func_dict = {
   {"draw_line", DrawFuncCollection::drawLine},
   {"draw_rotated_rect", DrawFuncCollection::drawRotatedRect},
   {"draw_star", DrawFuncCollection::drawStar},
+  {"draw_geo_and_text", DrawFuncCollection::drawGeoAndText},
   {"", [](SkCanvas*) {}} // sentinel
 };
 

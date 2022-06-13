@@ -8,4 +8,4 @@ LD_FLAGS := -L $(CHROMIUM_BUILD_ROOT) -lskia -lgflags -lfmt
 
 all:
 	g++ main.cc $(CPP_FLAGS) $(CFLAGS) $(LD_FLAGS)
-	DYLD_LIBRARY_PATH=$(CHROMIUM_BUILD_ROOT) ./a.out --draw_func=draw_star
+	DYLD_LIBRARY_PATH=$(CHROMIUM_BUILD_ROOT) ./a.out --draw_func=draw_geo_and_text

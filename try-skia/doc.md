@@ -9,10 +9,10 @@ I don't plan to build skia standalone for now. But use the built libraries insid
 - [API Reference and Overview](https://skia.org/docs/user/api/): Briefly talked about he importance of SkCanvas and an example of drawing a rectangle.
 - [Official Documentation](https://skia.org/docs/): Contains tutorials for a few wonderful examples.
 - [Codesearch - specialization of the chromium codesearch](https://source.chromium.org/chromium/chromium/src/+/main:third_party/skia/)
+- [SkCanvas Overview](https://skia.org/docs/user/api/skcanvas_overview/)
 
 # Scratch - don't read
 - [SkCanvas Creation](https://skia.org/docs/user/api/skcanvas_creation/) [TODO HERE]
-- [SkCanvas Overview](https://skia.org/docs/user/api/skcanvas_overview/)
 - [SkPath Overview](https://skia.org/docs/user/api/skpath_overview/)
 
 - So cool skia examples: https://skia.org/docs/user/modules/canvaskit/
