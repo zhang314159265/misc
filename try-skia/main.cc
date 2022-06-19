@@ -100,6 +100,22 @@ class DrawFuncCollection {
     auto text = SkTextBlob::MakeFromString("Hello, Skia!", font);
     canvas->drawTextBlob(text.get(), 50, 25, SkPaint());
   }
+
+  /*
+   * This one works well on raster backend but does not work as expected in the
+   # pdf backend.
+   */
+  static void drawPixels(SkCanvas* canvas) {
+    int width = 256, height = 256;
+    SkPaint paints[2];
+    paints[0].setColor(SK_ColorRED);
+    paints[1].setColor(SK_ColorBLACK);
+    for (int x = 0; x < width; ++x) {
+      for (int y = 0; y < height; ++y) {
+        canvas->drawPoint(x, y, paints[x > width / 2]);
+      }
+    }
+  }
 };
 
 unordered_map<std::string, DrawFuncT> draw_func_dict = {
@@ -107,6 +123,7 @@ unordered_map<std::string, DrawFuncT> draw_func_dict = {
   {"draw_rotated_rect", DrawFuncCollection::drawRotatedRect},
   {"draw_star", DrawFuncCollection::drawStar},
   {"draw_geo_and_text", DrawFuncCollection::drawGeoAndText},
+  {"draw_pixels", DrawFuncCollection::drawPixels},
   {"", [](SkCanvas*) {}} // sentinel
 };
 
