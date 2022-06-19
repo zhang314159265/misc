@@ -6,6 +6,7 @@
 #include "SkPDFDocument.h"
 #include "SkRRect.h"
 #include "SkTextBlob.h"
+#include "SkSurface.h"
 #include <gflags/gflags.h>
 #include <fmt/format.h>
 #include <cstdlib>
@@ -119,9 +120,16 @@ DrawFuncT findDrawFunc(const string& func_name) {
 
 class Backend {
  public:
+  explicit Backend(std::string path) : path_(path) { }
+  // create canvas. May need to store some state in the backend object so they
+  // don't get released too early
   virtual SkCanvas* createCanvas() = 0;
-  virtual void display() = 0;
+  // flush the image to the path
   virtual void flush() = 0;
+  // display the image from the path
+  virtual void display() {
+    displayImg(path_);
+  }
   virtual ~Backend() = default;
 
   static void displayImg(const std::string& path) {
@@ -131,11 +139,13 @@ class Backend {
       throw runtime_error(fmt::format("Fail to run command: {}", cmd));
     }
   }
+ protected:
+  std::string path_;
 };
 
 class PdfBackend : public Backend {
  public:
-  PdfBackend() : path_("/tmp/skia.pdf"), pdfStream_(make_unique<SkFILEWStream>(path_.c_str())) {
+  PdfBackend() : Backend("/tmp/skia.pdf"), pdfStream_(make_unique<SkFILEWStream>(path_.c_str())) {
   }
 
   SkCanvas* createCanvas() override {
@@ -151,22 +161,38 @@ class PdfBackend : public Backend {
 
     pdfStream_.reset();
   }
-
-  ~PdfBackend() {
-  }
-
-  void display() override {
-    displayImg(path_);
-  }
  private:
-  std::string path_;
   unique_ptr<SkFILEWStream> pdfStream_;
   sk_sp<SkDocument> pdfDoc_;
+};
+
+class RasterBackend : public Backend {
+ public:
+  explicit RasterBackend() : Backend("/tmp/skia.png") { }
+  SkCanvas* createCanvas() override {
+    int width = 256, height = 256;
+    rasterSurface_ = SkSurface::MakeRasterN32Premul(width, height);
+    SkCanvas* rasterCanvas = rasterSurface_->getCanvas();
+    return rasterCanvas;
+  }
+
+  void flush() override {
+    sk_sp<SkImage> img(rasterSurface_->makeImageSnapshot());
+    assert(img);
+    sk_sp<SkData> png(img->encodeToData());
+    assert(png);
+    SkFILEWStream out(path_.c_str());
+    out.write(png->data(), png->size());
+  }
+ private:
+  sk_sp<SkSurface> rasterSurface_;
 };
 
 unique_ptr<Backend> createBackend(const string& backend_name) {
   if (backend_name == "pdf") {
     return make_unique<PdfBackend>();
+  } else if (backend_name == "raster") {
+    return make_unique<RasterBackend>();
   } else {
     throw runtime_error(fmt::format("Unrecognized backend name {}", backend_name));
     return nullptr; // can not reach here
