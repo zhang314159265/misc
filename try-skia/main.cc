@@ -227,7 +227,8 @@ unique_ptr<Backend> createBackend(const string& backend_name) {
   } else if (backend_name == "raster") {
     return make_unique<RasterBackend>();
   } else if (backend_name == "raster_direct") {
-    return make_unique<RasterDirectBackend>();
+    // return make_unique<RasterDirectBackend>();
+    throw runtime_error("raster_direct backend does not work yet");
   } else {
     throw runtime_error(fmt::format("Unrecognized backend name {}", backend_name));
     return nullptr; // can not reach here
