@@ -188,11 +188,46 @@ class RasterBackend : public Backend {
   sk_sp<SkSurface> rasterSurface_;
 };
 
+#if 0 // the example does not work
+/*
+ * Pass in the storage from outside to create the surface.
+ */
+class RasterDirectBackend : public Backend {
+ public:
+  explicit RasterDirectBackend() : Backend("/tmp/skia.png") { }
+  SkCanvas* createCanvas() override {
+    int width = 256, height = 256;
+    SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
+    size_t rowBytes = info.minRowBytes();
+    #if 0
+    // the API is deleted already
+    size_t size = info.getSafeSize(rowBytes);
+    #else
+    // just do some safe estimate myself
+    size_t size = rowBytes * (height + 10);
+    #endif
+    pixelMemory_ = std::vector<char>(size); // allocate memory
+    surface_ = SkSurface::MakeRasterDirect(info, &pixelMemory_[0], rowBytes);
+    return surface_->getCanvas();
+  }
+
+  void flush() override {
+    SkFILEWStream out(path_.c_str());
+    out.write(pixelMemory_.data(), pixelMemory_.size());
+  }
+ private:
+  std::vector<char> pixelMemory_;
+  sk_sp<SkSurface> surface_;
+};
+#endif
+
 unique_ptr<Backend> createBackend(const string& backend_name) {
   if (backend_name == "pdf") {
     return make_unique<PdfBackend>();
   } else if (backend_name == "raster") {
     return make_unique<RasterBackend>();
+  } else if (backend_name == "raster_direct") {
+    return make_unique<RasterDirectBackend>();
   } else {
     throw runtime_error(fmt::format("Unrecognized backend name {}", backend_name));
     return nullptr; // can not reach here
