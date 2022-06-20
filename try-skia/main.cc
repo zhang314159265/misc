@@ -15,6 +15,11 @@ using namespace std;
 
 DEFINE_string(draw_func, "draw_line", "Name of the draw function");
 DEFINE_string(backend, "pdf", "Name of the skia backend to create SkCanvas");
+// assumes height is the same as width
+// TODO: this parameter may only work when drawing conic using the raster backend
+// so far since I have not tested other case.
+// For drawing conic, setting this to 4096 would be a good choice.
+DEFINE_int32(width, 256, "Width of the canvas");
 
 // hack
 void SkDebugf(const char* fmt, ...) {
@@ -116,14 +121,128 @@ class DrawFuncCollection {
       }
     }
   }
+
+  /*
+   * Draw a collection of parabola, ellipse and hyperbola.
+   */
+  static void drawConic(SkCanvas* canvas) {
+    canvas->drawColor(SK_ColorWHITE);
+    int side = FLAGS_width;
+    canvas->translate(side / 2, side / 2);
+
+    SkPaint paint;
+    // paint.setStrokeWidth(2);
+    paint.setStrokeWidth(4);
+    paint.setColor(SK_ColorBLACK);
+
+    // set focus on (0, 0)
+    canvas->drawPoint(0, 0, paint);
+    // set directrix at x = 1
+    canvas->drawLine(side / 4, -side / 2, side / 4, side / 2, paint);
+
+    // draw circle manually
+    // TODO: such a dumb implementation :(
+    auto circle_helper = [&](int r) {
+      for (int x = -r; x <= r; ++x) {
+        int y = (int) sqrt(r * r - x * x);
+        canvas->drawPoint(x, y, paint);
+        canvas->drawPoint(x, -y, paint);
+      }
+    };
+
+    circle_helper(side / 4);
+
+    // parabola fomula
+    // x = a * y * y + b
+    auto parabola_helper = [&](double a, double b) {
+      for (int x = -side / 2; x <= b; ++x) {
+        int y = sqrt((x - b) / a);
+        if (y < side / 2) {
+          canvas->drawPoint(x, y, paint);
+          canvas->drawPoint(x, -y, paint);
+        }
+      }
+    };
+    // x = -2/side y*y + side / 8
+    paint.setColor(SK_ColorYELLOW);
+    parabola_helper(-2.0 / side, side / 8.0);
+
+    // ellipse
+    paint.setColor(SK_ColorRED);
+    auto ellipse_helper = [&](double a, double b, double x_shift) {
+      for (int x = -a; x <= a; ++x) {
+        int realx = x + x_shift;
+        int y = sqrt(1 - x * x / (a * a)) * b;
+        if (abs(realx) < side / 2 && y < side / 2) {
+          canvas->drawPoint(realx, y, paint);
+          canvas->drawPoint(realx, -y, paint);
+        }
+      }
+    };
+    int distFocusDirect = side / 4;
+    /*
+     * for ellipse with formula: x*x / a*a + y*y / b*b = 1
+     * e = c / a
+     * right focus: (c, 0)
+     * right directrix: x = a * a / c
+     * distFocusDirect = a * a / c - c = b * b / c
+     *   = a * a / (a * e) - a * e = a / e - a * e = (1 - e*e) / e * a
+     * 
+     */
+    for (double e = 0.1; e < 1; e += 0.2) {
+      double a = e * distFocusDirect / (1.0 - e * e);
+      double c = e * a;
+      double b = sqrt(a * a - c * c);
+      // focus move from (c, 0) to (0, 0)
+      double x_shift = -c;
+      ellipse_helper(a, b, x_shift);
+    }
+
+    // hyperbola
+    paint.setColor(SK_ColorBLUE);
+    auto hyperbola_helper = [&](double a, double b, double x_shift) {
+      for (int x = a; x <= side * 2; ++x) {
+        int realx1 = x + x_shift;
+        int realx2 = -x + x_shift;
+        if (abs(realx1) >= side / 2 && abs(realx2) >= side / 2) {
+          continue;
+        }
+        double y = sqrt(x * x / (a * a) - 1) * b;
+        if (abs(y) >= side / 2) {
+          continue;
+        }
+        canvas->drawPoint(realx1, y, paint);
+        canvas->drawPoint(realx1, -y, paint);
+        canvas->drawPoint(realx2, y, paint);
+        canvas->drawPoint(realx2, -y, paint);
+      }
+    };
+    /*
+     * for hyperbola with formula: x*x / a*a - y*y / b*b = 1
+     * e = c / a
+     * left focus: (-c, 0)
+     * left directrix: x = -a * a / c
+     *
+     * distFocusDirect = c - a * a / c = ae - a/e = (e*e - 1) / e * a
+     */
+    for (double e = 1.5; e < 10; e += 3) {
+      double a = e * distFocusDirect / (e * e - 1);
+      double c = e * a;
+      double b = sqrt(c * c - a * a);
+      // focus move from (-c, 0) to (0, 0)
+      double x_shift = c;
+      hyperbola_helper(a, b, x_shift);
+    }
+  }
 };
 
 unordered_map<std::string, DrawFuncT> draw_func_dict = {
-  {"draw_line", DrawFuncCollection::drawLine},
-  {"draw_rotated_rect", DrawFuncCollection::drawRotatedRect},
-  {"draw_star", DrawFuncCollection::drawStar},
-  {"draw_geo_and_text", DrawFuncCollection::drawGeoAndText},
-  {"draw_pixels", DrawFuncCollection::drawPixels},
+  {"line", DrawFuncCollection::drawLine},
+  {"rotated_rect", DrawFuncCollection::drawRotatedRect},
+  {"star", DrawFuncCollection::drawStar},
+  {"geo_and_text", DrawFuncCollection::drawGeoAndText},
+  {"pixels", DrawFuncCollection::drawPixels},
+  {"conic", DrawFuncCollection::drawConic},
   {"", [](SkCanvas*) {}} // sentinel
 };
 
@@ -187,7 +306,7 @@ class RasterBackend : public Backend {
  public:
   explicit RasterBackend() : Backend("/tmp/skia.png") { }
   SkCanvas* createCanvas() override {
-    int width = 256, height = 256;
+    int width = FLAGS_width, height = FLAGS_width;
     rasterSurface_ = SkSurface::MakeRasterN32Premul(width, height);
     SkCanvas* rasterCanvas = rasterSurface_->getCanvas();
     return rasterCanvas;
