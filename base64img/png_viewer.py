@@ -18,7 +18,7 @@ class PNGViewer(QWidget):
 
     # first dimension is row/y rather than column/x
     self.color_indices = list(self.png[2])
-    self.palette = self.png[3]["palette"]
+    self.palette = self.png[3].get("palette", None)
     self.width = self.png[0]
     self.height = self.png[1]
     self.setGeometry(left, top, self.width + 2 * self.pad, self.height + 2 * self.pad)
@@ -30,8 +30,11 @@ class PNGViewer(QWidget):
     p = QPainter(self)
     for x in range(self.width):
       for y in range(self.height):
-        idx = self.color_indices[y][x]
-        color = self.palette[idx] # rgb or rgba
+        if self.palette:
+            idx = self.color_indices[y][x]
+            color = self.palette[idx] # rgb or rgba
+        else:
+            color = self.color_indices[y][x * 3 : (x + 1) * 3]
         p.setPen(QColor(*color))
         p.drawPoint(x + self.pad, y + self.pad)
 
